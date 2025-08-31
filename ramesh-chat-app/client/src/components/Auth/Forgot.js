@@ -1,5 +1,242 @@
 // // client/src/components/Auth/Forgot.js
 
+
+import React, { useState, useContext } from "react";
+import { motion } from "framer-motion";
+import { recoverUsername, recoverEmail, recoverByQuestion } from "../../api";
+import { ThemeContext } from "../../contexts/ThemeContext";
+import { useNavigate } from "react-router-dom";
+
+export default function Forgot() {
+  const [mode, setMode] = useState("uname"); // "uname" | "email" | "recovery"
+  const [input, setInput] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [step, setStep] = useState(1);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const { theme } = useContext(ThemeContext);
+  const navigate = useNavigate();
+
+  const go = async () => {
+    if (!input.trim()) return alert("Enter a value first");
+    try {
+      setError("");
+      if (mode === "recovery") {
+        if (step === 1) {
+          setStep(2);
+        } else {
+          const res = await recoverByQuestion(input.trim(), answer.trim());
+          setResult(res.data);
+        }
+      } else {
+        const res =
+          mode === "uname"
+            ? await recoverUsername(input)
+            : await recoverEmail(input);
+        setResult(res.data);
+      }
+    } catch (e) {
+      setResult(null);
+      setError(e?.response?.data?.error || "Not found");
+    }
+  };
+
+  const renderResult = () => {
+    if (error) {
+      return (
+        <div style={styles.errorBox}>
+          <strong>Error:</strong> {error}
+        </div>
+      );
+    }
+
+    if (!result) return null;
+
+    const key = Object.keys(result)[0];
+    let value = result[key];
+
+    if (key === "password") {
+      value = `🔐 ${value}`;
+    }
+
+    return (
+      <div style={styles.resultBox}>
+        <span style={styles.resultLabel}>
+          Recovered {key.charAt(0).toUpperCase() + key.slice(1)}:
+        </span>
+        <div style={styles.resultValue}>{value}</div>
+      </div>
+    );
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      style={styles.wrap}
+    >
+      <div style={styles.card}>
+        <h2 style={{ ...styles.h2, fontFamily: "var(--font-ui)" }}>
+          {theme.name} Recovery
+        </h2>
+
+        <select
+          value={mode}
+          onChange={(e) => {
+            setMode(e.target.value);
+            setInput("");
+            setResult(null);
+            setStep(1);
+            setError("");
+          }}
+          style={styles.select}
+        >
+          <option value="uname">I know e-mail, need username</option>
+          <option value="email">I know username, need e-mail</option>
+          <option value="recovery">Recover Password (Security Q)</option>
+        </select>
+
+        <input
+          style={styles.input}
+          placeholder={mode === "email" ? "Enter username" : "Enter email"}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+        />
+
+        {mode === "recovery" && step === 2 && (
+          <input
+            style={styles.input}
+            placeholder="Who was your favorite teacher?"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+          />
+        )}
+
+        <button style={styles.btn} onClick={go}>
+          {mode === "recovery" && step === 2 ? "Submit Answer" : "Recover"}
+        </button>
+
+        {renderResult()}
+        <button
+  style={{ ...styles.btn, background: "lightblue", color: "#0a0909ff" }}
+  onClick={() => navigate("/login")}
+>
+  Back
+</button>
+
+      </div>
+    </motion.div>
+  );
+}
+
+const radius = 18;
+
+const styles = {
+  wrap: {
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+    background: "linear-gradient(135deg,var(--primary),var(--primarySoft))",
+    fontFamily: "var(--font-ui)",
+    color: "var(--textMain)"
+  },
+  card: {
+    width: "100%",
+    maxWidth: 420,
+    padding: "44px 34px",
+    borderRadius: radius,
+    background: "rgba(255,255,255,.08)",
+    backdropFilter: "blur(15px)",
+    boxShadow: "0 10px 30px rgba(0,0,0,.25)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center"
+  },
+  h2: {
+    fontSize: "clamp(1.6rem, 5vw, 2.3rem)",
+    marginBottom: 28,
+    letterSpacing: 0.8
+  },
+  select: {
+    width: "100%",
+    padding: "16px 18px",
+    marginBottom: 18,
+    border: "none",
+    borderRadius: radius,
+    fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
+    fontFamily: "var(--font-ui)",
+    background: "var(--primarySoft)",
+    color: "var(--textMain)",
+    outline: "none",
+    cursor: "pointer"
+  },
+  input: {
+    width: "100%",
+    padding: "16px 18px",
+    marginBottom: 18,
+    border: "none",
+    borderRadius: radius,
+    fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
+    fontFamily: "var(--font-ui)",
+    outline: "none"
+  },
+  btn: {
+    width: "100%",
+    padding: "16px 18px",
+    marginTop: 4,
+    border: "none",
+    borderRadius: radius,
+    fontWeight: 600,
+    fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
+    background: "lightgreen",
+    color: "var(--primarySoft)",
+    fontFamily: "var(--font-ui)",
+    cursor: "pointer"
+  },
+  resultBox: {
+    marginTop: 24,
+    width: "100%",
+    background: "rgba(255,255,255,0.07)",
+    padding: "16px 18px",
+    borderRadius: radius,
+    color: "#fff",
+    borderLeft: "5px solid limegreen"
+  },
+  resultLabel: {
+    fontSize: "0.95rem",
+    fontWeight: "bold",
+    display: "block",
+    marginBottom: 6
+  },
+  resultValue: {
+    fontSize: "1.05rem",
+    fontWeight: 600,
+    wordBreak: "break-word",
+    color: "lightgreen"
+  },
+  errorBox: {
+    marginTop: 24,
+    width: "100%",
+    background: "rgba(255,0,0,0.08)",
+    padding: "16px 18px",
+    borderRadius: radius,
+    color: "#ff4d4f",
+    fontWeight: 500,
+    borderLeft: "5px solid #ff4d4f"
+  }
+};
+
+
+
+
+
+
+
+
+
 // import React, { useState } from "react";
 // import { recoverUsername, recoverEmail } from "../../api";
 
@@ -215,221 +452,221 @@
 
 
 
-import React, { useState, useContext } from "react";
-import { motion } from "framer-motion";
-import { recoverUsername, recoverEmail, recoverByQuestion } from "../../api";
-import { ThemeContext } from "../../contexts/ThemeContext";
+// import React, { useState, useContext } from "react";
+// import { motion } from "framer-motion";
+// import { recoverUsername, recoverEmail, recoverByQuestion } from "../../api";
+// import { ThemeContext } from "../../contexts/ThemeContext";
 
-export default function Forgot() {
-  const [mode, setMode] = useState("uname"); // "uname" | "email" | "recovery"
-  const [input, setInput] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [step, setStep] = useState(1);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState("");
+// export default function Forgot() {
+//   const [mode, setMode] = useState("uname"); // "uname" | "email" | "recovery"
+//   const [input, setInput] = useState("");
+//   const [answer, setAnswer] = useState("");
+//   const [step, setStep] = useState(1);
+//   const [result, setResult] = useState(null);
+//   const [error, setError] = useState("");
 
-  const { theme } = useContext(ThemeContext);
+//   const { theme } = useContext(ThemeContext);
 
-  const go = async () => {
-    if (!input.trim()) return alert("Enter a value first");
-    try {
-      setError("");
-      if (mode === "recovery") {
-        if (step === 1) {
-          setStep(2);
-        } else {
-          const res = await recoverByQuestion(input.trim(), answer.trim());
-          setResult(res.data);
-        }
-      } else {
-        const res =
-          mode === "uname"
-            ? await recoverUsername(input)
-            : await recoverEmail(input);
-        setResult(res.data);
-      }
-    } catch (e) {
-      setResult(null);
-      setError(e?.response?.data?.error || "Not found");
-    }
-  };
+//   const go = async () => {
+//     if (!input.trim()) return alert("Enter a value first");
+//     try {
+//       setError("");
+//       if (mode === "recovery") {
+//         if (step === 1) {
+//           setStep(2);
+//         } else {
+//           const res = await recoverByQuestion(input.trim(), answer.trim());
+//           setResult(res.data);
+//         }
+//       } else {
+//         const res =
+//           mode === "uname"
+//             ? await recoverUsername(input)
+//             : await recoverEmail(input);
+//         setResult(res.data);
+//       }
+//     } catch (e) {
+//       setResult(null);
+//       setError(e?.response?.data?.error || "Not found");
+//     }
+//   };
 
-  const renderResult = () => {
-    if (error) {
-      return (
-        <div style={styles.errorBox}>
-          <strong>Error:</strong> {error}
-        </div>
-      );
-    }
+//   const renderResult = () => {
+//     if (error) {
+//       return (
+//         <div style={styles.errorBox}>
+//           <strong>Error:</strong> {error}
+//         </div>
+//       );
+//     }
 
-    if (!result) return null;
+//     if (!result) return null;
 
-    const key = Object.keys(result)[0];
-    let value = result[key];
+//     const key = Object.keys(result)[0];
+//     let value = result[key];
 
-    if (key === "password") {
-      value = `🔐 ${value}`;
-    }
+//     if (key === "password") {
+//       value = `🔐 ${value}`;
+//     }
 
-    return (
-      <div style={styles.resultBox}>
-        <span style={styles.resultLabel}>
-          Recovered {key.charAt(0).toUpperCase() + key.slice(1)}:
-        </span>
-        <div style={styles.resultValue}>{value}</div>
-      </div>
-    );
-  };
+//     return (
+//       <div style={styles.resultBox}>
+//         <span style={styles.resultLabel}>
+//           Recovered {key.charAt(0).toUpperCase() + key.slice(1)}:
+//         </span>
+//         <div style={styles.resultValue}>{value}</div>
+//       </div>
+//     );
+//   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      style={styles.wrap}
-    >
-      <div style={styles.card}>
-        <h2 style={{ ...styles.h2, fontFamily: "var(--font-ui)" }}>
-          {theme.name} Recovery
-        </h2>
+//   return (
+//     <motion.div
+//       initial={{ opacity: 0 }}
+//       animate={{ opacity: 1 }}
+//       style={styles.wrap}
+//     >
+//       <div style={styles.card}>
+//         <h2 style={{ ...styles.h2, fontFamily: "var(--font-ui)" }}>
+//           {theme.name} Recovery
+//         </h2>
 
-        <select
-          value={mode}
-          onChange={(e) => {
-            setMode(e.target.value);
-            setInput("");
-            setResult(null);
-            setStep(1);
-            setError("");
-          }}
-          style={styles.select}
-        >
-          <option value="uname">I know e-mail, need username</option>
-          <option value="email">I know username, need e-mail</option>
-          <option value="recovery">Recover Password (Security Q)</option>
-        </select>
+//         <select
+//           value={mode}
+//           onChange={(e) => {
+//             setMode(e.target.value);
+//             setInput("");
+//             setResult(null);
+//             setStep(1);
+//             setError("");
+//           }}
+//           style={styles.select}
+//         >
+//           <option value="uname">I know e-mail, need username</option>
+//           <option value="email">I know username, need e-mail</option>
+//           <option value="recovery">Recover Password (Security Q)</option>
+//         </select>
 
-        <input
-          style={styles.input}
-          placeholder={mode === "email" ? "Enter username" : "Enter email"}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-        />
+//         <input
+//           style={styles.input}
+//           placeholder={mode === "email" ? "Enter username" : "Enter email"}
+//           value={input}
+//           onChange={(e) => setInput(e.target.value)}
+//         />
 
-        {mode === "recovery" && step === 2 && (
-          <input
-            style={styles.input}
-            placeholder="Who was your favorite teacher?"
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-          />
-        )}
+//         {mode === "recovery" && step === 2 && (
+//           <input
+//             style={styles.input}
+//             placeholder="Who was your favorite teacher?"
+//             value={answer}
+//             onChange={(e) => setAnswer(e.target.value)}
+//           />
+//         )}
 
-        <button style={styles.btn} onClick={go}>
-          {mode === "recovery" && step === 2 ? "Submit Answer" : "Recover"}
-        </button>
+//         <button style={styles.btn} onClick={go}>
+//           {mode === "recovery" && step === 2 ? "Submit Answer" : "Recover"}
+//         </button>
 
-        {renderResult()}
-      </div>
-    </motion.div>
-  );
-}
+//         {renderResult()}
+//       </div>
+//     </motion.div>
+//   );
+// }
 
-const radius = 18;
+// const radius = 18;
 
-const styles = {
-  wrap: {
-    minHeight: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 16,
-    background: "linear-gradient(135deg,var(--primary),var(--primarySoft))",
-    fontFamily: "var(--font-ui)",
-    color: "var(--textMain)"
-  },
-  card: {
-    width: "100%",
-    maxWidth: 420,
-    padding: "44px 34px",
-    borderRadius: radius,
-    background: "rgba(255,255,255,.08)",
-    backdropFilter: "blur(15px)",
-    boxShadow: "0 10px 30px rgba(0,0,0,.25)",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center"
-  },
-  h2: {
-    fontSize: "clamp(1.6rem, 5vw, 2.3rem)",
-    marginBottom: 28,
-    letterSpacing: 0.8
-  },
-  select: {
-    width: "100%",
-    padding: "16px 18px",
-    marginBottom: 18,
-    border: "none",
-    borderRadius: radius,
-    fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
-    fontFamily: "var(--font-ui)",
-    background: "var(--primarySoft)",
-    color: "var(--textMain)",
-    outline: "none",
-    cursor: "pointer"
-  },
-  input: {
-    width: "100%",
-    padding: "16px 18px",
-    marginBottom: 18,
-    border: "none",
-    borderRadius: radius,
-    fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
-    fontFamily: "var(--font-ui)",
-    outline: "none"
-  },
-  btn: {
-    width: "100%",
-    padding: "16px 18px",
-    marginTop: 4,
-    border: "none",
-    borderRadius: radius,
-    fontWeight: 600,
-    fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
-    background: "lightgreen",
-    color: "var(--primarySoft)",
-    fontFamily: "var(--font-ui)",
-    cursor: "pointer"
-  },
-  resultBox: {
-    marginTop: 24,
-    width: "100%",
-    background: "rgba(255,255,255,0.07)",
-    padding: "16px 18px",
-    borderRadius: radius,
-    color: "#fff",
-    borderLeft: "5px solid limegreen"
-  },
-  resultLabel: {
-    fontSize: "0.95rem",
-    fontWeight: "bold",
-    display: "block",
-    marginBottom: 6
-  },
-  resultValue: {
-    fontSize: "1.05rem",
-    fontWeight: 600,
-    wordBreak: "break-word",
-    color: "lightgreen"
-  },
-  errorBox: {
-    marginTop: 24,
-    width: "100%",
-    background: "rgba(255,0,0,0.08)",
-    padding: "16px 18px",
-    borderRadius: radius,
-    color: "#ff4d4f",
-    fontWeight: 500,
-    borderLeft: "5px solid #ff4d4f"
-  }
-};
+// const styles = {
+//   wrap: {
+//     minHeight: "100vh",
+//     display: "flex",
+//     justifyContent: "center",
+//     alignItems: "center",
+//     padding: 16,
+//     background: "linear-gradient(135deg,var(--primary),var(--primarySoft))",
+//     fontFamily: "var(--font-ui)",
+//     color: "var(--textMain)"
+//   },
+//   card: {
+//     width: "100%",
+//     maxWidth: 420,
+//     padding: "44px 34px",
+//     borderRadius: radius,
+//     background: "rgba(255,255,255,.08)",
+//     backdropFilter: "blur(15px)",
+//     boxShadow: "0 10px 30px rgba(0,0,0,.25)",
+//     display: "flex",
+//     flexDirection: "column",
+//     alignItems: "center"
+//   },
+//   h2: {
+//     fontSize: "clamp(1.6rem, 5vw, 2.3rem)",
+//     marginBottom: 28,
+//     letterSpacing: 0.8
+//   },
+//   select: {
+//     width: "100%",
+//     padding: "16px 18px",
+//     marginBottom: 18,
+//     border: "none",
+//     borderRadius: radius,
+//     fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
+//     fontFamily: "var(--font-ui)",
+//     background: "var(--primarySoft)",
+//     color: "var(--textMain)",
+//     outline: "none",
+//     cursor: "pointer"
+//   },
+//   input: {
+//     width: "100%",
+//     padding: "16px 18px",
+//     marginBottom: 18,
+//     border: "none",
+//     borderRadius: radius,
+//     fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
+//     fontFamily: "var(--font-ui)",
+//     outline: "none"
+//   },
+//   btn: {
+//     width: "100%",
+//     padding: "16px 18px",
+//     marginTop: 4,
+//     border: "none",
+//     borderRadius: radius,
+//     fontWeight: 600,
+//     fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
+//     background: "lightgreen",
+//     color: "var(--primarySoft)",
+//     fontFamily: "var(--font-ui)",
+//     cursor: "pointer"
+//   },
+//   resultBox: {
+//     marginTop: 24,
+//     width: "100%",
+//     background: "rgba(255,255,255,0.07)",
+//     padding: "16px 18px",
+//     borderRadius: radius,
+//     color: "#fff",
+//     borderLeft: "5px solid limegreen"
+//   },
+//   resultLabel: {
+//     fontSize: "0.95rem",
+//     fontWeight: "bold",
+//     display: "block",
+//     marginBottom: 6
+//   },
+//   resultValue: {
+//     fontSize: "1.05rem",
+//     fontWeight: 600,
+//     wordBreak: "break-word",
+//     color: "lightgreen"
+//   },
+//   errorBox: {
+//     marginTop: 24,
+//     width: "100%",
+//     background: "rgba(255,0,0,0.08)",
+//     padding: "16px 18px",
+//     borderRadius: radius,
+//     color: "#ff4d4f",
+//     fontWeight: 500,
+//     borderLeft: "5px solid #ff4d4f"
+//   }
+// };
